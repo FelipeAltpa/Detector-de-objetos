@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1.0">
+        <title>Clasificador Inteligente de Imágenes</title>
+        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js">
+
+                    
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js">
+
+                    
+        </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+
+                    
+        </script>
+        <style>
+:root  {
+    --bg:#eef3f8;
+    --panel:#fff;
+    --border:#d8e0ea;
+    --soft:#edf2f7;
+    --text:#1e293b;
+    --muted:#64748b;
+    --blue:#2f6fec;
+    --blue2:#255dd0;
+    --green:#28b463;
+    --greenbg:#e8f8ef;
+    --yellow:#f4b400;
+    --yellowbg:#fff8df;
+    --red:#e74c3c;
+    --redbg:#fdeceb
+}
+*  {
+    box-sizing:border-box;
+    margin:0;
+    padding:0
+}
+[hidden]  {
+    display:none!important
+}
+body  {
+    min-height:100vh;
+    background:var(--bg);
+    font-family:Arial,Helvetica,sans-serif;
+    color:var(--text);
+    padding:35px
+}
+.app  {
+    width:min(1400px,100%);
+    margin:auto;
+    display:grid;
+    grid-template-columns:470px 1fr;
+    gap:28px
+}
+.panel  {
+    background:var(--panel);
+    border-radius:18px;
+    border:1px solid var(--soft);
+    box-shadow:0 10px 30px rgba(15,23,42,.08);
+    overflow:hidden
+}
+.panel-fuente,.panel-resultados  {
+    min-height:840px
+}
+.panel-historial  {
+    grid-column:1/-1;
+    padding:28px
+}
+.panel-header  {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:24px 28px;
+    border-bottom:1px solid var(--soft)
+}
+.panel-header h2  {
+    font-size:28px
+}
+.badge  {
+    padding:8px 16px;
+    border-radius:999px;
+    font-size:14px;
+    font-weight:bold;
+    background:#eef2f7;
+    color:var(--muted)
+}
+.badge.seguro  {
+    background:var(--greenbg);
+    color:var(--green)
+}
+.badge.incierto  {
+    background:var(--yellowbg);
+    color:#b77900
+}
+.badge.error  {
+    background:var(--redbg);
+    color:var(--red)
+}
+.selector-fuente  {
+    display:flex;
+    margin:26px 28px 12px;
+    border-bottom:2px solid var(--border)
+}
+.tab  {
+    flex:1;
+    border:0;
+    background:transparent;
+    padding:16px 12px;
+    cursor:pointer;
+    font-size:17px;
+    font-weight:600;
+    color:var(--muted);
+    border-bottom:3px solid transparent
+}
+.tab.activo  {
+    color:var(--blue);
+    border-bottom-color:var(--blue)
+}
+.contenedor-preview  {
+    margin:18px 28px
+}
+.zona-imagen,.zona-camara  {
+    width:100%;
+    height:400px;
+    border:2px dashed var(--border);
+    border-radius:18px;
+    background:#fafcff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
+    position:relative
+}
+.zona-camara  {
+    background:#111827;
+    border-style:solid
+}
+.placeholder  {
+    text-align:center;
+    color:var(--muted);
+    padding:30px;
+    line-height:1.7
+}
+.placeholder p:first-child  {
+    font-size:20px;
+    font-weight:bold;
+    color:var(--text);
+    margin-bottom:10px
+}
+.camera-placeholder  {
+    color:white
+}
+.camera-placeholder p:first-child  {
+    color:white
+}
+#imagen-preview  {
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    display:block
+}
+#webcam-container  {
+    width:100%;
+    height:100%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden
+}
+#webcam-container canvas  {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block
+}
+.informacion-imagen  {
+    margin:0 28px 24px;
+    background:#f8fbff;
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:20px
+}
+.informacion-imagen h3,.probabilidades h3,.reporte h3  {
+    margin-bottom:18px
+}
+.dato  {
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    align-items:center;
+    padding:10px 0;
+    border-bottom:1px solid var(--soft)
+}
+.dato:last-child  {
+    border-bottom:0
+}
+.dato span  {
+    color:var(--muted);
+    font-size:15px
+}
+.dato strong  {
+    font-size:15px;
+    text-align:right;
+    word-break:break-word
+}
+.acciones  {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+    margin:0 28px
+}
+.boton  {
+    min-height:52px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:white;
+    cursor:pointer;
+    font-size:15px;
+    font-weight:bold;
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    transition:.25s
+}
+.boton:hover:not(:disabled)  {
+    transform:translateY(-2px);
+    box-shadow:0 8px 20px rgba(0,0,0,.08)
+}
+.boton-acento  {
+    background:var(--blue);
+    color:white;
+    border:0
+}
+.boton-acento:hover:not(:disabled)  {
+    background:var(--blue2)
+}
+.boton:disabled  {
+    cursor:not-allowed;
+    opacity:.55;
+    transform:none
+}
+#boton-seleccionar  {
+    grid-column:1/-1
+}
+#selector-imagen  {
+    display:none
+}
+.oculto  {
+    display:none!important
+}
+.estado-modelo  {
+    margin:24px 28px 18px;
+    padding:14px 18px;
+    background:#f8fbff;
+    border:1px solid var(--border);
+    border-radius:12px;
+    color:var(--muted);
+    font-size:15px;
+    font-weight:600
+}
+.resultado-principal  {
+    margin:0 28px 24px;
+    padding:28px;
+    border-radius:18px;
+    background:#f8fbff;
+    border:1px solid var(--border);
+    text-align:center;
+    min-height:240px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:14px
+}
+.resultado-principal.seguro  {
+    background:var(--greenbg);
+    border-color:var(--green)
+}
+.resultado-principal.incierto  {
+    background:var(--yellowbg);
+    border-color:var(--yellow)
+}
+.resultado-principal.error  {
+    background:var(--redbg);
+    border-color:var(--red)
+}
+.clase-detectada  {
+    font-size:36px;
+    font-weight:700;
+    word-break:break-word
+}
+.confianza-principal  {
+    font-size:48px;
+    font-weight:bold;
+    color:var(--blue)
+}
+.mensaje  {
+    font-size:16px;
+    color:var(--muted);
+    line-height:1.7
+}
+.probabilidades  {
+    margin:0 28px 24px
+}
+.prediccion  {
+    margin-bottom:18px
+}
+.fila-etiqueta  {
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:8px
+}
+.nombre-clase,.porcentaje  {
+    font-size:15px;
+    font-weight:600
+}
+.porcentaje  {
+    color:var(--muted)
+}
+.barra-fondo  {
+    width:100%;
+    height:12px;
+    border-radius:999px;
+    background:#e6edf5;
+    overflow:hidden
+}
+.barra  {
+    width:0;
+    height:100%;
+    border-radius:inherit;
+    background:linear-gradient(90deg,#4b83f5,#2f6fec);
+    transition:width .15s
+}
+.reporte  {
+    margin:0 28px 24px;
+    padding:22px;
+    background:#fafcff;
+    border:1px solid var(--border);
+    border-radius:16px
+}
+.acciones-reporte  {
+    margin:0 28px 28px
+}
+.acciones-reporte .boton  {
+    width:100%
+}
+.panel-resultados  {
+    max-height:900px;
+    overflow-y:auto
+}
+.historial-wrapper  {
+    margin-top:24px;
+    max-height:340px;
+    overflow-y:auto
+}
+.historial  {
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    gap:18px
+}
+.tarjeta-historial  {
+    display:flex;
+    gap:16px;
+    padding:18px;
+    background:white;
+    border:1px solid var(--border);
+    border-radius:16px;
+    cursor:pointer
+}
+.tarjeta-historial.activa  {
+    border-color:var(--blue);
+    box-shadow:0 0 0 3px rgba(47,111,236,.12)
+}
+.miniatura  {
+    width:82px;
+    height:82px;
+    border-radius:12px;
+    overflow:hidden;
+    background:#edf2f7;
+    flex-shrink:0
+}
+.miniatura img  {
+    width:100%;
+    height:100%;
+    object-fit:cover
+}
+.info-historial  {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:6px;
+    min-width:0
+}
+.id-analisis,.hora-historial  {
+    font-size:13px;
+    color:var(--muted)
+}
+.nombre-historial  {
+    font-size:16px;
+    font-weight:700;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap
+}
+.clase-historial  {
+    color:var(--muted)
+}
+.confianza-historial  {
+    font-weight:bold;
+    color:var(--blue)
+}
+.historial-vacio  {
+    border:2px dashed var(--border);
+    border-radius:16px;
+    padding:50px;
+    text-align:center;
+    color:var(--muted);
+    background:#fafcff
+}
+.boton-pequeno  {
+    height:42px;
+    padding:0 18px;
+    font-size:14px
+}
+@media(max-width:1100px)  {
+    .app  {
+        grid-template-columns:1fr
+    }
+    .panel-fuente,.panel-resultados  {
+        min-height:auto
+    }
+}
+@media(max-width:700px)  {
+    body  {
+        padding:16px
+    }
+    .panel-header  {
+        padding:20px
+    }
+    .panel-header h2  {
+        font-size:22px
+    }
+    .contenedor-preview,.informacion-imagen,.acciones,.estado-modelo,.resultado-principal,.probabilidades,.reporte,.acciones-reporte  {
+        margin-left:20px;
+        margin-right:20px
+    }
+    .zona-imagen,.zona-camara  {
+        height:320px
+    }
+    .acciones  {
+        grid-template-columns:1fr
+    }
+    .historial  {
+        grid-template-columns:1fr
+    }
+    .panel-historial  {
+        padding:20px
+    }
+}
+</style>
+    </head>
+    <body>
+        <main class="app">
+            <section class="panel panel-fuente">
+                <header class="panel-header">
+                    <h2>Entrada de datos</h2>
+                    <span id="badge-modo" class="badge">Modo imagen</span>
+                </header>
+                <div class="selector-fuente">
+                    <button id="tab-imagen" class="tab activo" type="button">📁 Subir imagen</button>
+                    <button id="tab-camara" class="tab" type="button">📷 Usar cámara</button>
+                </div>
+                <div class="contenedor-preview">
+                    <div id="zona-imagen" class="zona-imagen">
+                        <div id="placeholder-imagen" class="placeholder">
+                            <p>Arrastra una imagen</p>
+                            <p>o selecciónala desde tu computador</p>
+                        </div>
+                        <img id="imagen-preview" alt="Vista previa" hidden>
+                    </div>
+                    <div id="zona-camara" class="zona-camara" hidden>
+                        <div id="webcam-container">
+                            <div class="placeholder camera-placeholder">
+                                <p>Cámara apagada</p>
+                                <p>Selecciona “Usar cámara” para iniciar.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <section id="informacion-imagen" class="informacion-imagen">
+                    <h3>Información</h3>
+                    <div class="dato">
+                        <span>Archivo</span>
+                        <strong id="nombre-archivo">-</strong>
+                    </div>
+                    <div class="dato">
+                        <span>Resolución</span>
+                        <strong id="resolucion-imagen">-</strong>
+                    </div>
+                    <div class="dato">
+                        <span>Tamaño</span>
+                        <strong id="tamano-imagen">-</strong>
+                    </div>
+                    <div class="dato">
+                        <span>Formato</span>
+                        <strong id="formato-imagen">-</strong>
+                    </div>
+                </section>
+                <div class="acciones">
+                    <label for="selector-imagen" id="boton-seleccionar" class="boton">Seleccionar imagen</label>
+                    <input id="selector-imagen" type="file" accept="image/png,image/jpeg,image/webp">
+                    <button id="boton-analizar" class="boton boton-acento" type="button" disabled>Analizar</button>
+                    <button id="boton-limpiar" class="boton" type="button">Limpiar</button>
+                </div>
+            </section>
+            <section class="panel panel-resultados">
+                <header class="panel-header">
+                    <h2>Resultados del análisis</h2>
+                    <span id="estado-confianza" class="badge">Sin analizar</span>
+                </header>
+                <div id="estado-modelo" class="estado-modelo">Cargando modelo de IA...</div>
+                <section id="resultado-principal" class="resultado-principal">
+                    <div id="clase-detectada" class="clase-detectada">Sin predicción</div>
+                    <div id="confianza-principal" class="confianza-principal">0 %</div>
+                    <div id="mensaje" class="mensaje">Esperando análisis...</div>
+                </section>
+                <section class="probabilidades">
+                    <h3>Probabilidades</h3>
+                    <div id="label-container">
+                    </div>
+                </section>
+                <section id="reporte" class="reporte">
+                    <h3>Reporte del análisis</h3>
+                    <div class="dato">
+                        <span>ID del análisis</span>
+                        <strong id="reporte-id">-</strong>
+                    </div>
+                    <div class="dato">
+                        <span>Fecha</span>
+                        <strong id="reporte-fecha">-</strong>
+                    </div>
+                    <div class="dato">
+                        <span>Archivo</span>
+                        <strong id="reporte-archivo">-</strong>
+                    </div>
+                    <div class="dato">
+                        <span>Resultado</span>
+                        <strong id="reporte-clase">-</strong>
+                    </div>
+                    <div class="dato">
+                        <span>Confianza</span>
+                        <strong id="reporte-confianza">-</strong>
+                    </div>
+                    <div class="dato" style="display:block">
+                        <span>Conclusión</span>
+                        <p id="reporte-conclusion" style="margin-top:10px;color:var(--muted);line-height:1.7">El reporte aparecerá después del análisis de una imagen.</p>
+                    </div>
+                </section>
+                <div class="acciones-reporte">
+                    <button id="boton-descargar" class="boton boton-acento" type="button" disabled>Descargar reporte</button>
+                </div>
+            </section>
+            <section class="panel panel-historial">
+                <header class="panel-header" style="padding:0 0 20px">
+                    <h2>Historial de la sesión</h2>
+                    <button id="boton-limpiar-historial" class="boton boton-pequeno" type="button">Limpiar historial</button>
+                </header>
+                <div class="historial-wrapper">
+                    <div id="historial" class="historial">
+                        <div class="historial-vacio">
+                            <h3>Aún no hay análisis</h3>
+                            <p>Los análisis realizados durante esta sesión aparecerán aquí.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        <script>
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+const URL_MODELO="https://teachablemachine.withgoogle.com/models/D-9u3KcrD/";
+const UMBRAL_CONFIANZA=.85;
+const TAMANO_MAXIMO_MB=8;
+const MAXIMO_HISTORIAL=10;
+const estado=  {
+    modo:"imagen",modelo:null,webcam:null,camaraActiva:false,ejecutando:false,
+    modeloCargado:false,totalClases:0,imagenActual:null,archivoActual:null,
+    ultimoAnalisis:null,historial:[],contadorAnalisis:0
+}
+;
+const ui=  {
+    tabImagen:document.getElementById("tab-imagen"),tabCamara:document.getElementById("tab-camara"),
+    zonaImagen:document.getElementById("zona-imagen"),zonaCamara:document.getElementById("zona-camara"),
+    placeholder:document.getElementById("placeholder-imagen"),imagen:document.getElementById("imagen-preview"),
+    webcam:document.getElementById("webcam-container"),selectorImagen:document.getElementById("selector-imagen"),
+    botonSeleccionar:document.getElementById("boton-seleccionar"),botonAnalizar:document.getElementById("boton-analizar"),
+    botonLimpiar:document.getElementById("boton-limpiar"),botonDescargar:document.getElementById("boton-descargar"),
+    informacionImagen:document.getElementById("informacion-imagen"),nombreArchivo:document.getElementById("nombre-archivo"),
+    resolucion:document.getElementById("resolucion-imagen"),tamano:document.getElementById("tamano-imagen"),
+    formato:document.getElementById("formato-imagen"),estadoModelo:document.getElementById("estado-modelo"),
+    badge:document.getElementById("estado-confianza"),resultado:document.getElementById("resultado-principal"),
+    clase:document.getElementById("clase-detectada"),confianza:document.getElementById("confianza-principal"),
+    mensaje:document.getElementById("mensaje"),probabilidades:document.getElementById("label-container"),
+    reporte:document.getElementById("reporte"),reporteId:document.getElementById("reporte-id"),
+    reporteFecha:document.getElementById("reporte-fecha"),reporteArchivo:document.getElementById("reporte-archivo"),
+    reporteClase:document.getElementById("reporte-clase"),reporteConfianza:document.getElementById("reporte-confianza"),
+    reporteConclusion:document.getElementById("reporte-conclusion"),badgeModo:document.getElementById("badge-modo"),
+    historial:document.getElementById("historial"),botonLimpiarHistorial:document.getElementById("boton-limpiar-historial")
+}
+;
+// ============================================================
+// INICIO DE LA APLICACIÓN
+// ============================================================
+document.addEventListener("DOMContentLoaded",async()=>  {
+    registrarEventos();await cargarModelo();cambiarModo("imagen");
+}
+);
+function registrarEventos()  {
+    ui.tabImagen.addEventListener("click",()=>cambiarModo("imagen"));
+    ui.tabCamara.addEventListener("click",()=>cambiarModo("camara"));
+    ui.selectorImagen.addEventListener("change",manejarArchivo);
+    ui.botonAnalizar.addEventListener("click",analizarImagen);
+    ui.botonLimpiar.addEventListener("click",limpiarAplicacion);
+    ui.botonDescargar.addEventListener("click",descargarReporte);
+    ui.botonLimpiarHistorial.addEventListener("click",limpiarHistorial);
+    ["dragenter","dragover"].forEach(e=>ui.zonaImagen.addEventListener(e,x=>  {
+        x.preventDefault();if(estado.modo==="imagen")ui.zonaImagen.style.borderColor="var(--blue)";
+    }
+    ));
+    ["dragleave","drop"].forEach(e=>ui.zonaImagen.addEventListener(e,x=>  {
+        x.preventDefault();ui.zonaImagen.style.borderColor="";
+    }
+    ));
+    ui.zonaImagen.addEventListener("drop",e=>  {
+        if(e.dataTransfer.files[0])manejarArchivo(  {
+            target:  {
+                files:[e.dataTransfer.files[0]]
+            }
+        }
+        );
+    }
+    );
+}
+async function cargarModelo()  {
+    try  {
+        if(!URL_MODELO.startsWith("http")||URL_MODELO.includes("PEGA_AQUI"))throw Error("URL");
+        ui.estadoModelo.textContent="Cargando modelo de IA...";
+        estado.modelo=await tmImage.load(URL_MODELO+"model.json",URL_MODELO+"metadata.json");
+        estado.totalClases=estado.modelo.getTotalClasses();
+        estado.modeloCargado=true;
+        ui.estadoModelo.textContent="Modelo cargado correctamente.";
+        crearBarras();
+    }
+    catch(e)  {
+        console.error(e);
+        ui.estadoModelo.textContent="No fue posible cargar el modelo.";
+        mostrarError("No fue posible cargar el modelo de IA.");
+    }
+}
+// ============================================================
+// BARRAS DE PROBABILIDAD
+// ============================================================
+function crearBarras()  {
+    ui.probabilidades.innerHTML="";
+    for(let i=0;i<estado.totalClases;i++)  {
+        const b=document.createElement("div");
+        b.className="prediccion";
+        b.innerHTML=`<div class="fila-etiqueta">
+                        <span class="nombre-clase">Clase</span>
+                        <span class="porcentaje">0 %</span>
+                    </div>
+                    <div class="barra-fondo">
+                        <div class="barra">
+                        </div>
+                    </div>`;
+        ui.probabilidades.appendChild(b);
+    }
+}
+// ============================================================
+// CAMBIO ENTRE MODO IMAGEN Y MODO CÁMARA
+// ============================================================
+async function cambiarModo(modo)  {
+    if(modo==="imagen")  {
+        detenerCamara();
+        estado.modo="imagen";
+        ui.tabImagen.classList.add("activo");
+        ui.tabCamara.classList.remove("activo");
+        ui.zonaImagen.hidden=false;
+        ui.zonaCamara.hidden=true;
+        ui.botonSeleccionar.classList.remove("oculto");
+        ui.botonAnalizar.classList.remove("oculto");
+        ui.botonAnalizar.disabled=!estado.imagenActual;
+        ui.selectorImagen.disabled=false;
+        ui.informacionImagen.classList.remove("oculto");
+        ui.reporte.classList.remove("oculto");
+        ui.botonDescargar.classList.remove("oculto");
+        ui.botonDescargar.disabled=!estado.ultimoAnalisis;
+        ui.badgeModo.textContent="Modo imagen";
+        ui.mensaje.textContent=estado.imagenActual?"Imagen lista para analizar.":"Selecciona una imagen.";
+        return;
+    }
+    estado.modo="camara";
+    ui.tabImagen.classList.remove("activo");
+    ui.tabCamara.classList.add("activo");
+    ui.zonaImagen.hidden=true;
+    ui.zonaCamara.hidden=false;
+    ui.botonSeleccionar.classList.add("oculto");
+    ui.botonAnalizar.classList.add("oculto");
+    ui.selectorImagen.disabled=true;
+    ui.informacionImagen.classList.add("oculto");
+    ui.reporte.classList.add("oculto");
+    ui.botonDescargar.classList.add("oculto");
+    ui.badgeModo.textContent="Cámara en vivo";
+    await iniciarCamara();
+}
+// ============================================================
+// CÁMARA EN TIEMPO REAL
+// ============================================================
+async function iniciarCamara()  {
+    if(!estado.modeloCargado)  {
+        ui.mensaje.textContent="El modelo todavía está cargando.";
+        return;
+    }
+    if(estado.camaraActiva)return;
+    try  {
+        ui.estadoModelo.textContent="Iniciando cámara...";
+        estado.webcam=new tmImage.Webcam(360,360,true);
+        await estado.webcam.setup();
+        await estado.webcam.play();
+        ui.webcam.innerHTML="";
+        ui.webcam.appendChild(estado.webcam.canvas);
+        estado.camaraActiva=true;
+        estado.ejecutando=true;
+        ui.estadoModelo.textContent="Cámara activa — análisis en vivo.";
+        ui.mensaje.textContent="Apunta la cámara hacia el objeto.";
+        requestAnimationFrame(cicloCamara);
+    }
+    catch(e)  {
+        console.error(e);
+        estado.camaraActiva=false;
+        estado.ejecutando=false;
+        ui.estadoModelo.textContent="No fue posible acceder a la cámara.";
+        ui.mensaje.textContent=mensajeCamara(e);
+        ui.resultado.className="resultado-principal error";
+    }
+}
+async function cicloCamara()  {
+    if(!estado.ejecutando||!estado.webcam||!estado.modelo)return;
+    try  {
+        estado.webcam.update();
+        const p=await estado.modelo.predict(estado.webcam.canvas);
+        actualizarPredicciones(p,false);
+    }
+    catch(e)  {
+        console.error("Error de cámara:",e);
+    }
+    if(estado.ejecutando)requestAnimationFrame(cicloCamara);
+}
+// ============================================================
+// CARGA Y VALIDACIÓN DE IMÁGENES
+// ============================================================
+async function manejarArchivo(e)  {
+    const archivo=e.target.files[0];
+    if(!archivo)return;
+    try  {
+        if(!["image/png","image/jpeg","image/webp"].includes(archivo.type))throw Error("TIPO");
+        if(archivo.size>TAMANO_MAXIMO_MB*1024*1024)throw Error("TAMANO");
+        estado.archivoActual=archivo;
+        const lector=new FileReader();
+        lector.onload=x=>  {
+            ui.imagen.onload=()=>  {
+                estado.imagenActual=ui.imagen;
+                ui.placeholder.hidden=true;
+                ui.imagen.hidden=false;
+                ui.nombreArchivo.textContent=archivo.name;
+                ui.resolucion.textContent=`${ui.imagen.naturalWidth} × ${ui.imagen.naturalHeight}`;
+                ui.tamano.textContent=`${(archivo.size/1024/1024).toFixed(2)} MB`;
+                ui.formato.textContent=archivo.type;
+                ui.botonAnalizar.disabled=!estado.modeloCargado;
+                ui.mensaje.textContent="Pulsa “Analizar” para clasificar la imagen.";
+            }
+            ;
+            ui.imagen.src=x.target.result;
+        }
+        ;
+        lector.readAsDataURL(archivo);
+    }
+    catch(e)  {
+        mostrarError(e.message==="TAMANO"?"La imagen supera el límite de 8 MB.":"Formato de imagen no permitido.");
+    }
+}
+// ============================================================
+// ANÁLISIS DE IMÁGENES
+// ============================================================
+async function analizarImagen()  {
+    if(estado.modo!=="imagen"||!estado.modeloCargado||!estado.imagenActual)return;
+    ui.botonAnalizar.disabled=true;
+    ui.estadoModelo.textContent="Analizando imagen...";
+    try  {
+        const p=await estado.modelo.predict(estado.imagenActual);
+        actualizarPredicciones(p,true);
+        ui.estadoModelo.textContent="Análisis completado.";
+    }
+    catch(e)  {
+        console.error(e);
+        mostrarError("No fue posible analizar la imagen.");
+    }
+    finally  {
+        ui.botonAnalizar.disabled=false;
+    }
+}
+// ============================================================
+// PREDICCIONES Y RESULTADOS
+// ============================================================
+function actualizarPredicciones(predicciones,guardar)  {
+    let mejor=predicciones[0];
+    predicciones.forEach((p,i)=>  {
+        actualizarBarra(i,p);if(p.probability>mejor.probability)mejor=p;
+    }
+    );
+    mostrarResultado(mejor);
+    if(guardar)guardarAnalisis(predicciones,mejor);
+}
+function actualizarBarra(i,p)  {
+    const b=ui.probabilidades.children[i];
+    if(!b)return;
+    const n=p.probability*100;
+    b.querySelector(".nombre-clase").textContent=p.className;
+    b.querySelector(".porcentaje").textContent=n.toFixed(1)+" %";
+    b.querySelector(".barra").style.width=n+"%";
+}
+function mostrarResultado(p)  {
+    const n=p.probability*100;
+    ui.confianza.textContent=n.toFixed(1)+" %";
+    ui.badge.className="badge";
+    if(p.probability<UMBRAL_CONFIANZA)  {
+        ui.clase.textContent="No estoy segura";
+        ui.mensaje.textContent="Acerca el objeto o cambia su posición.";
+        ui.resultado.className="resultado-principal incierto";
+        ui.badge.textContent="Confianza baja";
+        ui.badge.classList.add("incierto");
+        return;
+    }
+    ui.clase.textContent=p.className;
+    ui.resultado.className="resultado-principal seguro";
+    ui.badge.textContent="Alta confianza";
+    ui.badge.classList.add("seguro");
+    const c=p.className.toLowerCase();
+    ui.mensaje.textContent=c==="botella"?"Botella detectada correctamente.":c==="celular"?"Teléfono celular detectado.":c==="fondo"?"No se detectan los objetos entrenados.":"Objeto reconocido por el modelo.";
+}
+// ============================================================
+// HISTORIAL
+// ============================================================
+function guardarAnalisis(predicciones,mejor)  {
+    estado.contadorAnalisis++;
+    const fecha=new Date();
+    const a=  {
+        id:"AN-"+String(estado.contadorAnalisis).padStart(4,"0"),fecha,archivo:estado.archivoActual?.name||"Imagen",clase:mejor.className,confianza:mejor.probability,probabilidades:[...predicciones],miniatura:estado.imagenActual?.src||null
+    }
+    ;
+    estado.ultimoAnalisis=a;
+    estado.historial.unshift(a);
+    if(estado.historial.length>MAXIMO_HISTORIAL)estado.historial.pop();
+    actualizarReporte(a);
+    renderizarHistorial();
+    ui.botonDescargar.disabled=false;
+}
+// ============================================================
+// REPORTE PDF
+// ============================================================
+function actualizarReporte(a)  {
+    ui.reporteId.textContent=a.id;
+    ui.reporteFecha.textContent=a.fecha.toLocaleString("es-CO");
+    ui.reporteArchivo.textContent=a.archivo;
+    ui.reporteClase.textContent=a.clase;
+    ui.reporteConfianza.textContent=(a.confianza*100).toFixed(1)+" %";
+    ui.reporteConclusion.textContent=a.confianza>=UMBRAL_CONFIANZA?`La clasificación supera el umbral y se considera confiable.`:`La clasificación no alcanza el umbral de confianza establecido.`;
+}
+function renderizarHistorial()  {
+    if(!estado.historial.length)  {
+        ui.historial.innerHTML=`<div class="historial-vacio">
+                    <h3>Aún no hay análisis</h3>
+                    <p>Los análisis realizados durante esta sesión aparecerán aquí.</p>
+                </div>`;
+        return;
+    }
+    ui.historial.innerHTML="";
+    estado.historial.forEach(a=>  {
+        const t=document.createElement("article");t.className="tarjeta-historial"+(estado.ultimoAnalisis?.id===a.id?" activa":"");
+        t.innerHTML=`<div class="miniatura">${a.miniatura ? '<img src="' + a.miniatura + '" alt="Miniatura">' : ""}</div>
+                <div class="info-historial">
+                    <div class="id-analisis">${a.id}</div>
+                    <div class="nombre-historial">${escapeHTML(a.archivo)}</div>
+                    <div class="clase-historial">${escapeHTML(a.clase)}</div>
+                    <div class="confianza-historial">${(a.confianza*100).toFixed(1)} %</div>
+                    <div class="hora-historial">${a.fecha.toLocaleTimeString("es-CO")}</div>
+                </div>`;
+        t.onclick=()=>  {
+            estado.ultimoAnalisis=a;actualizarReporte(a);ui.botonDescargar.disabled=false;renderizarHistorial();
+        }
+        ;ui.historial.appendChild(t);
+    }
+    );
+}
+// ============================================================
+// LIMPIEZA Y CONTROL DE CÁMARA
+// ============================================================
+function limpiarAplicacion()  {
+    if(estado.modo==="camara")  {
+        detenerCamara();
+        cambiarModo("imagen");
+        return;
+    }
+    estado.imagenActual=null;
+    estado.archivoActual=null;
+    estado.ultimoAnalisis=null;
+    ui.selectorImagen.value="";
+    ui.imagen.src="";
+    ui.imagen.hidden=true;
+    ui.placeholder.hidden=false;
+    ui.nombreArchivo.textContent="-";
+    ui.resolucion.textContent="-";
+    ui.tamano.textContent="-";
+    ui.formato.textContent="-";
+    ui.botonAnalizar.disabled=true;
+    ui.botonDescargar.disabled=true;
+    ui.clase.textContent="Sin predicción";
+    ui.confianza.textContent="0 %";
+    ui.mensaje.textContent="Selecciona una imagen.";
+    ui.resultado.className="resultado-principal";
+    ui.badge.className="badge";
+    ui.badge.textContent="Sin analizar";
+    ui.reporteId.textContent="-";
+    ui.reporteFecha.textContent="-";
+    ui.reporteArchivo.textContent="-";
+    ui.reporteClase.textContent="-";
+    ui.reporteConfianza.textContent="-";
+    ui.reporteConclusion.textContent="El reporte aparecerá después del análisis de una imagen.";
+    if(estado.modeloCargado)  {
+        ui.probabilidades.innerHTML="";
+        crearBarras();
+    }
+}
+function detenerCamara()  {
+    estado.ejecutando=false;
+    estado.camaraActiva=false;
+    if(estado.webcam)  {
+        try  {
+            estado.webcam.stop();
+        }
+        catch(e)  {
+            console.error(e);
+        }
+        estado.webcam=null;
+    }
+    ui.webcam.innerHTML=`<div class="placeholder camera-placeholder">
+                <p>Cámara apagada</p>
+                <p>Selecciona “Usar cámara” para iniciar.</p>
+            </div>`;
+}
+function limpiarHistorial()  {
+    estado.historial=[];
+    estado.ultimoAnalisis=null;
+    ui.botonDescargar.disabled=true;
+    renderizarHistorial();
+}
+function descargarReporte()  {
+    if(estado.modo!=="imagen"||!estado.ultimoAnalisis)return;
+    try  {
+        const  {
+            jsPDF
+        }
+        =window.jspdf;
+        const pdf=new jsPDF();
+        const a=estado.ultimoAnalisis;
+        pdf.setFontSize(20);
+        pdf.text("Reporte de clasificación",20,25);
+        pdf.setFontSize(12);
+        pdf.text(`ID: ${a.id}`,20,45);
+        pdf.text(`Fecha: ${a.fecha.toLocaleString("es-CO")}`,20,55);
+        pdf.text(`Archivo: ${a.archivo}`,20,65);
+        pdf.text(`Resultado: ${a.clase}`,20,75);
+        pdf.text(`Confianza: ${(a.confianza*100).toFixed(1)} %`,20,85);
+        /*
+            * Agregamos al PDF la misma imagen que fue analizada.
+            * estado.imagenActual.src contiene el Data URL generado
+            * cuando el usuario selecciona el archivo.
+            */
+        if(a.miniatura)  {
+            const imagen = new Image();
+            imagen.onload = () =>  {
+                const margenX = 20;
+                const anchoMaximo = 170;
+                const altoMaximo = 70;
+                let ancho = imagen.naturalWidth;
+                let alto = imagen.naturalHeight;
+                const escala = Math.min(
+                anchoMaximo / ancho,
+                altoMaximo / alto,
+                1
+                );
+                ancho *= escala;
+                alto *= escala;
+                const x = margenX + (anchoMaximo - ancho) / 2;
+                const y = 100;
+                const formato =
+                a.miniatura.startsWith("data:image/png")
+                ? "PNG"
+                : "JPEG";
+                pdf.addImage(
+                a.miniatura,
+                formato,
+                x,
+                y,
+                ancho,
+                alto
+                );
+                const yTexto = y + alto + 15;
+                pdf.text("Conclusión:",20,yTexto);
+                const conclusion =
+                a.confianza >= UMBRAL_CONFIANZA
+                ? `La clasificación de ${a.clase} se considera confiable.`
+                : `La clasificación de ${a.clase} no alcanza el umbral de confianza.`;
+                pdf.text(
+                pdf.splitTextToSize(conclusion,170),
+                20,
+                yTexto + 10
+                );
+                pdf.save(`${a.id}_reporte.pdf`);
+            }
+            ;
+            imagen.onerror = () =>  {
+                generarPDFSinImagen(pdf,a);
+            }
+            ;
+            imagen.src = a.miniatura;
+        }
+        else  {
+            generarPDFSinImagen(pdf,a);
+        }
+    }
+    catch(e)  {
+        console.error(e);
+        mostrarError("No fue posible generar el reporte PDF.");
+    }
+}
+function generarPDFSinImagen(pdf,a)  {
+    const yTexto = 105;
+    pdf.text("Conclusión:",20,yTexto);
+    const conclusion =
+    a.confianza >= UMBRAL_CONFIANZA
+    ? `La clasificación de ${a.clase} se considera confiable.`
+    : `La clasificación de ${a.clase} no alcanza el umbral de confianza.`;
+    pdf.text(
+    pdf.splitTextToSize(conclusion,170),
+    20,
+    yTexto + 10
+    );
+    pdf.save(`${a.id}_reporte.pdf`);
+}
+// ============================================================
+// UTILIDADES Y MENSAJES DE ERROR
+// ============================================================
+function mostrarError(m)  {
+    ui.mensaje.textContent=m;
+    ui.resultado.className="resultado-principal error";
+    ui.badge.className="badge error";
+    ui.badge.textContent="Error";
+}
+function mensajeCamara(e)  {
+    if(e.name==="NotAllowedError")return"El navegador no tiene permiso para utilizar la cámara.";
+    if(e.name==="NotFoundError")return"No se encontró ninguna cámara disponible.";
+    return"Verifica los permisos de cámara y que ninguna otra aplicación la esté utilizando.";
+}
+function escapeHTML(s)  {
+    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+</script>
+    </body>
+</html>
